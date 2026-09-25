@@ -48,16 +48,22 @@ Look at the result:
 
 Validate iCal
     >>> browser.open('http://localhost/site/myEvent/@@view.ics')
-    >>> print browser.headers
-    Status: 200...
-    Content-Disposition: filename=cmf.ics
-    Content-Length: 0
-    Content-Type: text/iCal
+    >>> browser.headers['Content-Disposition']
+    'filename=cmf.ics'
+    >>> browser.headers['Content-Type']
+    'text/calendar; charset=utf-8'
+    >>> int(browser.headers['Content-Length']) == len(browser.contents.encode('utf-8'))
+    True
+    >>> 'BEGIN:VCALENDAR' in browser.contents
+    True
     
 Validate vCal
     >>> browser.open('http://localhost/site/myEvent/@@view.vcs')
-    >>> print browser.headers
-    Status: 200...
-    Content-Disposition: filename=cmf.vcs
-    Content-Length: 0
-    Content-Type: text/vCal
+    >>> browser.headers['Content-Disposition']
+    'filename=cmf.vcs'
+    >>> browser.headers['Content-Type']
+    'text/vCal; charset=utf-8'
+    >>> int(browser.headers['Content-Length']) == len(browser.contents.encode('utf-8'))
+    True
+    >>> 'BEGIN:VCALENDAR' in browser.contents
+    True

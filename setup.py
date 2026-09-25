@@ -40,13 +40,12 @@ setup(name='Products.%s' % NAME,
       license="ZPL 2.1 (http://www.zope.org/Resources/License/ZPL-2.1)",
       packages=find_packages(),
       include_package_data=True,
-      namespace_packages=['Products'],
+
+      python_requires='>=3.10',
       zip_safe=False,
-      setup_requires=['eggtestinfo',
-                     ],
       install_requires=[
           'setuptools',
-          'Zope2 >= 2.12.0',
+          'Zope>=6.1,<7',
           'Products.CMFCore',
           'Products.CMFDefault',
           'Products.GenericSetup',
@@ -57,14 +56,11 @@ setup(name='Products.%s' % NAME,
           'Products.DCWorkflow',
           ],
       extras_require = dict(
-          test = ['Products.DCWorkflow'],
+          test = ['Products.DCWorkflow', 'zope.testrunner'],
           ),
-      test_loader='zope.testing.testrunner.eggsupport:SkipLayers',
       test_suite='Products.%s.tests' % NAME,
       entry_points="""
       [zope2.initialize]
       Products.%s = Products.%s:initialize
-      [distutils.commands]
-      ftest = zope.testing.testrunner.eggsupport:ftest
       """ % (NAME, NAME),
       )

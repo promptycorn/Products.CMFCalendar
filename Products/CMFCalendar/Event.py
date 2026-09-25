@@ -16,11 +16,11 @@ $Id$
 """
 
 from AccessControl.SecurityInfo import ClassSecurityInfo
-from App.class_init import InitializeClass
+from AccessControl.class_init import InitializeClass
 from DateTime.DateTime import DateTime
 import transaction
 from zope.component.factory import Factory
-from zope.interface import implements
+from zope.interface import implementer
 
 from Products.CMFCalendar.exceptions import ResourceLockedError
 from Products.CMFCalendar.interfaces import IEvent
@@ -87,6 +87,7 @@ def _dateStrings( when ):
     return strings
 
 
+@implementer(IMutableEvent, IEvent, IDAVAware)
 class Event(PortalContent, DefaultDublinCoreImpl):
 
     """Events are objects for the Calendar topical query.
@@ -96,7 +97,6 @@ class Event(PortalContent, DefaultDublinCoreImpl):
     security = ClassSecurityInfo()
     security.declareObjectProtected(View)
 
-    implements(IMutableEvent, IEvent, IDAVAware)
 
     def __init__( self
                 , id
@@ -333,9 +333,8 @@ class Event(PortalContent, DefaultDublinCoreImpl):
         headers['Subject'] = new_subject or self.Subject()
         new_contrib = contributorsplitter(headers)
         headers['Contributors'] = new_contrib or self.Contributors()
-        haveheader = headers.has_key
         for key, value in self.getMetadataHeaders():
-            if not haveheader(key):
+            if key not in headers:
                 headers[key] = value
         self._editMetadata(title=headers['Title'],
                           subject=headers['Subject'],
@@ -391,7 +390,7 @@ class Event(PortalContent, DefaultDublinCoreImpl):
              , description=body
              )
 
-        except ResourceLockedError, msg:
+        except ResourceLockedError as msg:
             transaction.abort()
             RESPONSE.setStatus(423)
             return RESPONSE

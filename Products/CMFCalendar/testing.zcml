@@ -1,0 +1,12 @@
+<configure xmlns="http://namespaces.zope.org/zope">
+  <include package="Products.Five" file="meta.zcml" />
+  <include package="Products.GenericSetup" file="meta.zcml" />
+  <include package="Products.CMFCore" file="meta.zcml" />
+  <include package="Products.Five" />
+  <include package="Products.GenericSetup" />
+  <include package="Products.CMFCore" />
+  <utility component="zope.i18n.testmessagecatalog.TestMessageFallbackDomain" />
+  <adapter factory="Products.CMFCore.testing.BrowserLanguages"
+           for="zope.publisher.interfaces.http.IHTTPRequest"
+           provides="zope.i18n.interfaces.IUserPreferredLanguages" />
+</configure>

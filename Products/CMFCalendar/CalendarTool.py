@@ -18,10 +18,10 @@ $Id$
 import calendar
 
 from AccessControl.SecurityInfo import ClassSecurityInfo
-from App.class_init import InitializeClass
+from AccessControl.class_init import InitializeClass
 from DateTime.DateTime import DateTime
 from OFS.SimpleItem import SimpleItem
-from zope.interface import implements
+from zope.interface import implementer
 from Products.PageTemplates.PageTemplateFile import PageTemplateFile
 
 from Products.CMFCalendar.interfaces import ICalendarTool
@@ -32,10 +32,9 @@ from Products.CMFCore.utils import UniqueObject
 def sort_by_date(x, y):
     """ Utility function for sorting by start times, falling back on end times
     """
-    z = cmp(x.start, y.start)
-    if not z:
-        return cmp(x.end, y.end)
-    return z
+    left = (x.start, x.end)
+    right = (y.start, y.end)
+    return (left > right) - (left < right)
     
 def unique_results(results):
     """ Utility function to create a sequence of unique calendar results
@@ -43,9 +42,10 @@ def unique_results(results):
     rids = {}
     for result in results:
         rids[result.getRID()] = result
-    return rids.values()
+    return list(rids.values())
 
 
+@implementer(ICalendarTool)
 class CalendarTool (UniqueObject, SimpleItem):
 
     """ A tool for encapsulating how calendars work and are displayed """
@@ -54,7 +54,6 @@ class CalendarTool (UniqueObject, SimpleItem):
     meta_type= 'CMF Calendar Tool'
     security = ClassSecurityInfo()
 
-    implements(ICalendarTool)
 
     calendar_types = ('Event',)
     calendar_states = ('published',)
@@ -182,7 +181,7 @@ class CalendarTool (UniqueObject, SimpleItem):
         for week in daysByWeek:
             days = []
             for day in week:
-                if events.has_key(day):
+                if day in events:
                     days.append(events[day])
                 else:
                     days.append({'day': day, 'event': 0, 'eventslist':[]})
@@ -245,7 +244,7 @@ class CalendarTool (UniqueObject, SimpleItem):
             event['title'] = result.Title or result.getId
 
             if eventStartDay != eventEndDay:
-                allEventDays = range(eventStartDay, eventEndDay+1)
+                allEventDays = list(range(eventStartDay, eventEndDay+1))
                 eventDays[eventStartDay]['eventslist'].append(
                         {'end': None,
                          'start': result.start.Time(),
@@ -327,7 +326,7 @@ class CalendarTool (UniqueObject, SimpleItem):
         results = unique_results(query)
 
         # Sort by start date
-        results.sort(sort_by_date)
+        results.sort(key=lambda result: (result.start, result.end))
 
         return results
 
@@ -393,7 +392,7 @@ class CalendarTool (UniqueObject, SimpleItem):
 
         results = unique_results(query)
         if results:
-            results.sort(sort_by_date)
+            results.sort(key=lambda result: (result.start, result.end))
             return results[0]
 
 InitializeClass(CalendarTool)

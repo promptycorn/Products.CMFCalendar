@@ -23,7 +23,24 @@ from DateTime.interfaces import DateError
 from zope.interface.verify import verifyClass
 
 from Products.CMFCore.testing import ConformsToContent
-from Products.CMFCore.tests.base.testcase import RequestTest
+from Testing import ZopeTestCase
+from Testing.ZopeTestCase.layer import ZopeLite
+import transaction
+
+
+class RequestTest(unittest.TestCase):
+    """Transactional request fixture without CMFCore's legacy test helpers."""
+    layer = ZopeLite
+
+    def setUp(self):
+        transaction.begin()
+        self.app = ZopeTestCase.app()
+        self.REQUEST = self.app.REQUEST
+        self.RESPONSE = self.REQUEST.RESPONSE
+
+    def tearDown(self):
+        transaction.abort()
+        ZopeTestCase.close(self.app)
 
 
 class TestEvent(ConformsToContent, unittest.TestCase):
@@ -47,7 +64,7 @@ class TestEvent(ConformsToContent, unittest.TestCase):
         event = self._makeOne('test')
 
         self.assertEqual( event.getId(), 'test' )
-        self.failIf( event.Title() )
+        self.assertFalse( event.Title() )
 
     def test_edit(self):
         # Year month and day were processed in the wrong order
@@ -75,7 +92,7 @@ class TestEvent(ConformsToContent, unittest.TestCase):
         self.assertEqual( event.expiration_date, None )
         self.assertEqual( event.end(), DateTime('1999/12/31 23:59') )
         self.assertEqual( event.start(), DateTime('1999/05/01 00:00') )
-        self.failIf( event.contact_name )
+        self.assertFalse( event.contact_name )
 
     def test_puke(self):
         event = self._makeOne('shouldPuke')

@@ -18,10 +18,13 @@ $Id$
 from Testing import ZopeTestCase
 ZopeTestCase.installProduct('ZCTextIndex', 1)
 ZopeTestCase.installProduct('CMFCore', 1)
+ZopeTestCase.installProduct('PluginIndexes', 1)
 
 import transaction
 
-from Products.CMFCore.testing import FunctionalZCMLLayer
+from Testing.ZopeTestCase.layer import ZopeLite
+from zope.component.hooks import setHooks
+from zope.testing.cleanup import cleanUp
 from Products.CMFDefault.factory import addConfiguredSite
 
 # BBB for Zope 2.12
@@ -31,7 +34,20 @@ except ImportError:
     from Products.Five import zcml
 
 
-class FunctionalLayer(FunctionalZCMLLayer):
+class CalendarZCMLLayer(ZopeLite):
+
+    @classmethod
+    def setUp(cls):
+        import Products.CMFCalendar
+        zcml.load_config('testing.zcml', Products.CMFCalendar)
+        setHooks()
+
+    @classmethod
+    def tearDown(cls):
+        cleanUp()
+
+
+class FunctionalLayer(CalendarZCMLLayer):
 
     @classmethod
     def setUp(cls):
@@ -52,6 +68,16 @@ class FunctionalLayer(FunctionalZCMLLayer):
         ZopeTestCase.installPackage('OFS')
 
         app = ZopeTestCase.app()
+        from OFS.Folder import Folder
+        from Products.Sessions.BrowserIdManager import BrowserIdManager
+        from Products.Sessions.SessionDataManager import SessionDataManager
+        from Products.Transience.Transience import TransientObjectContainer
+        app._setObject('temp_folder', Folder('temp_folder'))
+        app.temp_folder._setObject('session_data',
+                                  TransientObjectContainer('session_data'))
+        app._setObject('browser_id_manager', BrowserIdManager('browser_id_manager'))
+        app._setObject('session_data_manager', SessionDataManager(
+            'session_data_manager', '/temp_folder/session_data'))
         addConfiguredSite(app, 'site', 'Products.CMFDefault:default',
                           snapshot=False,
                           extension_ids=('Products.CMFCalendar:default',
@@ -63,5 +89,7 @@ class FunctionalLayer(FunctionalZCMLLayer):
     def tearDown(cls):
         app = ZopeTestCase.app()
         app._delObject('site')
+        for name in ('session_data_manager', 'browser_id_manager', 'temp_folder'):
+            app._delObject(name)
         transaction.commit()
         ZopeTestCase.close(app)

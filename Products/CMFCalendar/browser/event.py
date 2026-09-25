@@ -21,7 +21,7 @@ from zope.app.form.browser import DatetimeI18nWidget
 from zope.component import adapts
 from zope.component import getUtility
 from zope.formlib import form
-from zope.interface import implements
+from zope.interface import implementer
 from zope.interface import Interface
 from zope.schema import Choice
 from zope.schema import Datetime
@@ -45,17 +45,17 @@ from Products.CMFCalendar.interfaces import IMutableEvent
 from Products.CMFCalendar.utils import Message as _
 
 
+@implementer(IVocabularyFactory)
 class EventTypeVocabulary(object):
 
     """Vocabulary factory for available event types.
     """
 
-    implements(IVocabularyFactory)
 
     def __call__(self, context):
         context = getattr(context, 'context', context)
         mdtool = getUtility(IMetadataTool)
-        items = [ (str(v), unicode(v), _(v))
+        items = [ (str(v), str(v), _(v))
                   for v in mdtool.listAllowedSubjects(context) ]
         return SimpleVocabulary.fromTitleItems(items)
 
@@ -68,64 +68,64 @@ class IEventSchema(Interface):
     """
 
     title = TextLine(
-        title=_(u'Title'),
+        title=_('Title'),
         required=False,
-        missing_value=u'',
+        missing_value='',
         max_length=100)
 
     contact_name = TextLine(
-        title=_(u'Contact Name'),
+        title=_('Contact Name'),
         required=False,
-        missing_value=u'',
+        missing_value='',
         max_length=100)
 
     location = TextLine(
-        title=_(u'Location'),
+        title=_('Location'),
         required=False,
-        missing_value=u'',
+        missing_value='',
         max_length=100)
 
     contact_email = EmailLine(
-        title=_(u'Contact Email'),
+        title=_('Contact Email'),
         required=False)
 
     categories = Set(
-        title=_(u'Category'),
+        title=_('Category'),
         required=False,
         missing_value=set(),
         value_type=Choice(vocabulary="cmf.calendar.AvailableEventTypes"))
 
     contact_phone = TextLine(
-        title=_(u'Contact Phone'),
+        title=_('Contact Phone'),
         required=False,
-        missing_value=u'',
+        missing_value='',
         max_length=100)
 
     event_url = URI(
-        title=_(u'URL'),
+        title=_('URL'),
         required=False,
-        missing_value=u'',
+        missing_value='',
         max_length=100)
 
     start_date = Datetime(
-        title=_(u'From'),)
+        title=_('From'),)
 
     stop_date = Datetime(
-        title=_(u'To'),)
+        title=_('To'),)
 
     description = Text(
-        title=_(u'Description'),
+        title=_('Description'),
         required=False,
-        missing_value=u'')
+        missing_value='')
 
 
+@implementer(IEventSchema)
 class EventSchemaAdapter(SchemaAdapterBase):
 
     """Adapter for IMutableEvent.
     """
 
     adapts(IMutableEvent)
-    implements(IEventSchema)
 
     title = ProxyFieldProperty(IEventSchema['title'], 'Title', 'setTitle')
     contact_name = ProxyFieldProperty(IEventSchema['contact_name'])
@@ -211,10 +211,68 @@ class EventiCalView(ViewBase):
 
     def _write_body(self):
         response = self.request.response
-        body = ViewPageTemplateFile('templates/event_ical.pt')(self)
-        response.setHeader('Content-Type', 'text/iCal')
+        body = self._calendar_body('2.0')
+        response.setHeader('Content-Type', 'text/calendar; charset=utf-8')
         response.setHeader('Content-Disposition', 'filename=cmf.ics')
-        response.write(body.encode("UTF-8"))
+        return body
+
+    def _calendar_body(self, version):
+        # Calendar content is TEXT, not HTML. Escape property separators and
+        # newlines before folding UTF-8 content lines at 75 octets (RFC 5545).
+        def text(value):
+            if isinstance(value, bytes):
+                value = value.decode('utf-8')
+            return (str(value).replace('\\', '\\\\')
+                    .replace('\r\n', '\n').replace('\r', '\n')
+                    .replace('\n', '\\n').replace(';', '\\;').replace(',', '\\,'))
+
+        def uri(value):
+            if '\r' in value or '\n' in value:
+                raise ValueError('Calendar URI must not contain a newline')
+            return value
+
+        context = self.context
+        lines = [
+            'BEGIN:VCALENDAR', 'VERSION:' + version,
+            'X-WR-CALNAME:' + text(context.absolute_url()),
+            'PRODID:-//Zope CMF 2.1//Calendar//EN',
+            'X-WR-TIMEZONE:UTC' if version == '2.0' else 'TZ:' + text(self.tz),
+            'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'BEGIN:VEVENT',
+            'CREATED:' + self.creation_date, 'DTSTAMP:' + self.timestamp,
+            'UID:' + text(self.UID), 'DTSTART:' + self.start, 'DTEND:' + self.end,
+            'SUMMARY:' + text(self.title()),
+            'LOCATION:' + text(self.location()),
+            'DESCRIPTION:' + text(self.description()),
+        ]
+        if version == '2.0':
+            if self.contact_name():
+                # RFC 6868 parameter escaping, inside a quoted parameter.
+                contact = (self.contact_name().replace('^', '^^')
+                           .replace('\r\n', '\n').replace('\r', '\n')
+                           .replace('\n', '^n').replace('"', "^'"))
+                lines.append('ATTENDEE;CN="%s":MAILTO:%s' % (
+                    contact, uri(context.contact_email)))
+            lines.append('URL:' + uri(context.absolute_url()))
+            if getattr(self, 'alarm', None):
+                lines.extend(['BEGIN:VALARM', 'DESCRIPTION:' + text(self.title()),
+                              'ACTION:DISPLAY',
+                              'TRIGGER;RELATED=START:' + uri(context.alarm),
+                              'END:VALARM'])
+        elif getattr(self, 'alarm', None):
+            lines.append('DALARM:' + text(self.dalarm))
+        lines.extend(['END:VEVENT', 'END:VCALENDAR'])
+
+        folded = []
+        for line in lines:
+            part = b''
+            for char in line:
+                encoded = char.encode('utf-8')
+                if len(part) + len(encoded) > 75:
+                    folded.append(part)
+                    part = b' '
+                part += encoded
+            folded.append(part)
+        return b'\r\n'.join(folded) + b'\r\n'
 
 class EventvCalView(EventiCalView):
 
@@ -222,8 +280,7 @@ class EventvCalView(EventiCalView):
 
     def _write_body(self):
         response = self.request.response
-        body = ViewPageTemplateFile('templates/event_vcal.pt')(self)
-        response.setHeader('Content-Type', 'text/vCal')
+        body = self._calendar_body('1.0')
+        response.setHeader('Content-Type', 'text/vCal; charset=utf-8')
         response.setHeader('Content-Disposition', 'filename=cmf.vcs')
-        response.write(body.encode("UTF-8"))
-
+        return body

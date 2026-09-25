@@ -8,6 +8,6 @@ try:
                  effectiveYear, expirationDay, expirationMo, expirationYear,
                  start_time, startAMPM, stop_time, stopAMPM, location,
                  contact_name, contact_email, contact_phone, event_url)
-    return context.setStatus(True, _(u'Event changed.'))
-except ResourceLockedError, errmsg:
+    return context.setStatus(True, _('Event changed.'))
+except ResourceLockedError as errmsg:
     return context.setStatus(False, errmsg)

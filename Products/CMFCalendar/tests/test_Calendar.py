@@ -17,7 +17,6 @@ $Id$
 
 import unittest
 from Testing import ZopeTestCase
-ZopeTestCase.utils.setupCoreSessions()
 
 import locale
 
@@ -69,7 +68,7 @@ class CalendarTests(unittest.TestCase):
 
     def test_days(self):
         ctool = self._makeOne()
-        old_locale = locale.getlocale(locale.LC_ALL)[0]
+        old_locale = locale.setlocale(locale.LC_ALL)
         locale.setlocale(locale.LC_ALL, 'C')
         try:
             self.assertEqual( ctool.getDays(),
@@ -94,7 +93,7 @@ class CalendarTests(unittest.TestCase):
         self.assertEqual(ctool.getFirstWeekDay(), 0)
 
         # Make sure the setting is being used...
-        old_locale = locale.getlocale(locale.LC_ALL)[0]
+        old_locale = locale.setlocale(locale.LC_ALL)
         locale.setlocale(locale.LC_ALL, 'C')
         try:
             self.assertEqual( ctool.getDays(),
@@ -127,28 +126,28 @@ class CalendarRequestTests(ZopeTestCase.FunctionalTestCase):
         caltool.edit_configuration(show_types=['Event'], use_session="True")
         self._testURL('/site/calendarBox', ())
 
-        self.failUnless(self.app.REQUEST.SESSION.get('calendar_year',None))
+        self.assertTrue(self.app.REQUEST.SESSION.get('calendar_year',None))
 
     def test_sessions_fiveview(self):
         caltool = self.app.site.portal_calendar
         caltool.edit_configuration(show_types=['Event'], use_session="True")
         self._testURL('/site/@@calendar_widget', ())
 
-        self.failUnless(self.app.REQUEST.SESSION.get('calendar_year',None))
+        self.assertTrue(self.app.REQUEST.SESSION.get('calendar_year',None))
 
     def test_noSessions_skinsview(self):
         caltool = self.app.site.portal_calendar
         caltool.edit_configuration(show_types=['Event'], use_session="")
         self._testURL('/site/calendarBox', ())
 
-        self.failIf(self.app.REQUEST.SESSION.get('calendar_year',None))
+        self.assertFalse(self.app.REQUEST.SESSION.get('calendar_year',None))
 
     def test_noSessions_fiveview(self):
         caltool = self.app.site.portal_calendar
         caltool.edit_configuration(show_types=['Event'], use_session="")
         self._testURL('/site/@@calendar_widget', ())
 
-        self.failIf(self.app.REQUEST.SESSION.get('calendar_year',None))
+        self.assertFalse(self.app.REQUEST.SESSION.get('calendar_year',None))
 
     def test_simpleCalendarRendering(self):
         caltool = self.app.site.portal_calendar
@@ -780,7 +779,7 @@ class CalendarRequestTests(ZopeTestCase.FunctionalTestCase):
         self.assertEqual(cal.getNextEvent(stop_one).start, start_two)
 
         # Check to see that we don't have events after July 2002
-        self.failIf(cal.getNextEvent(test_day))
+        self.assertFalse(cal.getNextEvent(test_day))
 
 
 def test_suite():

@@ -15,5 +15,5 @@
 $Id$
 """
 
-from _content import *
-from _tools import *
+from ._content import *
+from ._tools import *
